@@ -793,6 +793,7 @@ class Player extends Component {
     // TODO: Update to use `emptied` event instead. See #1277.
 
     this.removeClass('vjs-ended');
+    this.options_.loadstart_ = true;
 
     // reset the error state
     this.error(null);
@@ -1292,7 +1293,15 @@ class Player extends Component {
    * @method play
    */
   play() {
-    this.techCall_('play');
+    /** Loadstart solution **/
+    if (this.options_.loadstart_) {
+      this.techCall_('play');
+    } else {
+      this.tech_.el_.onloadstart = function() {
+        this.play();
+      };
+    }
+
     return this;
   }
 
