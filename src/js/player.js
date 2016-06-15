@@ -1293,7 +1293,9 @@ class Player extends Component {
    * @method play
    */
   play() {
-    /** Loadstart solution **/
+    //This calls play when the player has heard the loadstart event
+    //otherwise, the video element is instructed to play when it hears
+    //the loadstart
     if (this.options_.loadstart_) {
       this.techCall_('play');
     } else {
