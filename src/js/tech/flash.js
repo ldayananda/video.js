@@ -230,6 +230,20 @@ class Flash extends Tech {
   }
 
   /**
+   * Get media duration
+   *
+   * @returns {Number} Media duration
+   */
+  duration() {
+    if (this.readyState() === 0) {
+      return NaN;
+    } else {
+      let duration = this.el_.vjs_getProperty('duration');
+      return duration >= 0 ? duration : Infinity;
+    }
+  }
+
+  /**
    * Load media into player
    *
    * @method load
@@ -312,7 +326,7 @@ class Flash extends Tech {
 // Create setters and getters for attributes
 const _api = Flash.prototype;
 const _readWrite = 'rtmpConnection,rtmpStream,preload,defaultPlaybackRate,playbackRate,autoplay,loop,mediaGroup,controller,controls,volume,muted,defaultMuted'.split(',');
-const _readOnly = 'networkState,readyState,initialTime,duration,startOffsetTime,paused,ended,videoWidth,videoHeight'.split(',');
+const _readOnly = 'networkState,readyState,initialTime,startOffsetTime,paused,ended,videoWidth,videoHeight'.split(',');
 
 function _createSetter(attr){
   var attrUpper = attr.charAt(0).toUpperCase() + attr.slice(1);
@@ -369,9 +383,10 @@ Flash.nativeSourceHandler.canPlayType = function(type){
  * Check Flash can handle the source natively
  *
  * @param  {Object} source  The source object
+ * @param  {Object} options The options passed to the tech
  * @return {String}         'probably', 'maybe', or '' (empty string)
  */
-Flash.nativeSourceHandler.canHandleSource = function(source){
+Flash.nativeSourceHandler.canHandleSource = function(source, options){
   var type;
 
   function guessMimeType(src) {
@@ -456,7 +471,7 @@ Flash.checkReady = function(tech){
 // Trigger events from the swf on the player
 Flash.onEvent = function(swfID, eventName){
   let tech = Dom.getEl(swfID).tech;
-  tech.trigger(eventName);
+  tech.trigger(eventName, Array.prototype.slice.call(arguments, 2));
 };
 
 // Log errors from the swf

@@ -94,6 +94,9 @@ class Html5 extends Tech {
         tl.addEventListener('change', Fn.bind(this, this[`handle${capitalType}TrackChange_`]));
         tl.addEventListener('addtrack', Fn.bind(this, this[`handle${capitalType}TrackAdd_`]));
         tl.addEventListener('removetrack', Fn.bind(this, this[`handle${capitalType}TrackRemove_`]));
+
+        // Remove (native) trackts that are not used anymore
+        this.on('loadstart', this[`removeOld${capitalType}Tracks_`]);
       }
     });
 
@@ -113,9 +116,8 @@ class Html5 extends Tech {
     // Our goal should be to get the custom controls on mobile solid everywhere
     // so we can remove this all together. Right now this will block custom
     // controls on touch enabled laptops like the Chrome Pixel
-    if (browser.TOUCH_ENABLED && options.nativeControlsForTouch === true ||
-        browser.IS_IPHONE ||
-        browser.IS_NATIVE_ANDROID) {
+    if ((browser.TOUCH_ENABLED || browser.IS_IPHONE ||
+        browser.IS_NATIVE_ANDROID) && options.nativeControlsForTouch === true) {
       this.setControls(true);
     }
 
@@ -137,6 +139,11 @@ class Html5 extends Tech {
         tl.removeEventListener('change', this[`handle${capitalType}TrackChange_`]);
         tl.removeEventListener('addtrack', this[`handle${capitalType}TrackAdd_`]);
         tl.removeEventListener('removetrack', this[`handle${capitalType}TrackRemove_`]);
+      }
+      
+      // Stop removing old text tracks
+      if (tl) {
+        this.off('loadstart', this[`removeOld${capitalType}Tracks_`]);
       }
     });
 
@@ -296,6 +303,9 @@ class Html5 extends Tech {
         tt.addEventListener('addtrack', this.handleTextTrackAdd_);
         tt.addEventListener('removetrack', this.handleTextTrackRemove_);
       }
+    
+      // Remove (native) texttracks that are not used anymore
+      this.on('loadstart', this.removeOldTextTracks_);
     }
   }
 
@@ -353,6 +363,60 @@ class Html5 extends Tech {
     this.audioTracks().removeTrack_(e.track);
   }
 
+  /**
+   * This is a helper function that is used in removeOldTextTracks_, removeOldAudioTracks_ and
+   * removeOldVideoTracks_
+   * @param {Track[]} techTracks Tracks for this tech
+   * @param {Track[]} elTracks Tracks for the HTML5 video element
+   * @private
+   */
+  removeOldTracks_(techTracks, elTracks) {
+    // This will loop over the techTracks and check if they are still used by the HTML5 video element
+    // If not, they will be removed from the emulated list
+    let removeTracks = [];
+    if (!elTracks) {
+      return;
+    }
+
+    for (let i = 0; i < techTracks.length; i++) {
+      let techTrack = techTracks[i];
+
+      let found = false;
+      for (let j = 0; j < elTracks.length; j++) {
+        if (elTracks[j] === techTrack) {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        removeTracks.push(techTrack);
+      }
+    }
+
+    for (let i = 0; i < removeTracks.length; i++) {
+      const track = removeTracks[i];
+      techTracks.removeTrack_(track);
+    }
+  }
+
+  removeOldTextTracks_() {
+    const techTracks = this.textTracks();
+    const elTracks = this.el().textTracks;
+    this.removeOldTracks_(techTracks, elTracks);
+  }
+
+  removeOldAudioTracks_() {
+    const techTracks = this.audioTracks();
+    const elTracks = this.el().audioTracks;
+    this.removeOldTracks_(techTracks, elTracks);
+  }
+
+  removeOldVideoTracks_() {
+    const techTracks = this.videoTracks();
+    const elTracks = this.el().videoTracks;
+    this.removeOldTracks_(techTracks, elTracks);
+  }
 
   /**
    * Play for html5 tech
@@ -944,9 +1008,10 @@ Html5.nativeSourceHandler.canPlayType = function(type){
  * Check if the video element can handle the source natively
  *
  * @param  {Object} source  The source object
+ * @param  {Object} options The options passed to the tech
  * @return {String}         'probably', 'maybe', or '' (empty string)
  */
-Html5.nativeSourceHandler.canHandleSource = function(source){
+Html5.nativeSourceHandler.canHandleSource = function(source, options){
   var match, ext;
 
   // If a type was provided we should rely on that
@@ -992,9 +1057,14 @@ Html5.registerSourceHandler(Html5.nativeSourceHandler);
  * @return {Boolean}
  */
 Html5.canControlVolume = function(){
-  var volume =  Html5.TEST_VID.volume;
-  Html5.TEST_VID.volume = (volume / 2) + 0.1;
-  return volume !== Html5.TEST_VID.volume;
+  // IE will error if Windows Media Player not installed #3315
+  try {
+    var volume =  Html5.TEST_VID.volume;
+    Html5.TEST_VID.volume = (volume / 2) + 0.1;
+    return volume !== Html5.TEST_VID.volume;
+  } catch(e) {
+    return false;
+  }
 };
 
 /*
@@ -1008,9 +1078,14 @@ Html5.canControlPlaybackRate = function(){
   if (browser.IS_ANDROID && browser.IS_CHROME) {
     return false;
   }
-  var playbackRate = Html5.TEST_VID.playbackRate;
-  Html5.TEST_VID.playbackRate = (playbackRate / 2) + 0.1;
-  return playbackRate !== Html5.TEST_VID.playbackRate;
+  // IE will error if Windows Media Player not installed #3315
+  try {
+    var playbackRate = Html5.TEST_VID.playbackRate;
+    Html5.TEST_VID.playbackRate = (playbackRate / 2) + 0.1;
+    return playbackRate !== Html5.TEST_VID.playbackRate;
+  } catch(e) {
+    return false;
+  }
 };
 
 /*

@@ -92,6 +92,25 @@ class Player extends Component {
     // see enableTouchActivity in Component
     options.reportTouchActivity = false;
 
+    // If language is not set, get the closest lang attribute
+    if (!options.language) {
+      if (typeof tag.closest === 'function') {
+        let closest = tag.closest('[lang]');
+        if (closest) {
+          options.language = closest.getAttribute('lang');
+        }
+      } else {
+        let element = tag;
+        while (element && element.nodeType === 1) {
+          if (Dom.getElAttributes(tag).hasOwnProperty('lang')) {
+            options.language = element.getAttribute('lang');
+            break;
+          }
+          element = element.parentNode;
+        }
+      }
+    }
+
     // Run base component initializing with new options
     super(null, options, ready);
 
@@ -624,6 +643,7 @@ class Player extends Component {
     this.on(this.tech_, 'texttrackchange', this.handleTechTextTrackChange_);
     this.on(this.tech_, 'loadedmetadata', this.updateStyleEl_);
     this.on(this.tech_, 'posterchange', this.handleTechPosterChange_);
+    this.on(this.tech_, 'textdata', this.handleTechTextData_);
 
     this.usingNativeControls(this.techGet_('controls'));
 
@@ -1107,7 +1127,7 @@ class Player extends Component {
    */
   handleTechError_() {
     let error = this.tech_.error();
-    this.error(error && error.code);
+    this.error(error);
   }
 
   /**
@@ -1158,6 +1178,14 @@ class Player extends Component {
    */
   handleTechLoadedMetaData_() {
     this.trigger('loadedmetadata');
+  }
+
+  handleTechTextData_() {
+    var data = null;
+    if (arguments.length > 1) {
+      data = arguments[1];
+    }
+    this.trigger('textdata', data);
   }
 
   /**
@@ -1238,7 +1266,7 @@ class Player extends Component {
     // Otherwise call method now
     } else {
       try {
-        this.tech_[method](arg);
+        this.tech_ && this.tech_[method](arg);
       } catch(e) {
         log(e);
         throw e;
@@ -1292,7 +1320,15 @@ class Player extends Component {
    * @method play
    */
   play() {
-    this.techCall_('play');
+    // Only calls the tech's play if we already have a src loaded
+    if (this.src() || this.currentSrc()) {
+      this.techCall_('play');
+    } else {
+      this.tech_.one('loadstart', function() {
+        this.play();
+      });
+    }
+
     return this;
   }
 
@@ -1828,7 +1864,7 @@ class Player extends Component {
     let foundSourceAndTech;
     let flip = (fn) => (a, b) => fn(b, a);
     let finder = ([techName, tech], source) => {
-      if (tech.canPlaySource(source)) {
+      if (tech.canPlaySource(source, this.options_[techName.toLowerCase()])) {
         return {source: source, tech: techName};
       }
     };
@@ -1903,7 +1939,7 @@ class Player extends Component {
     } else if (source instanceof Object) {
       // check if the source has a type and the loaded tech cannot play the source
       // if there's no type we'll just try the current tech
-      if (source.type && !currentTech.canPlaySource(source)) {
+      if (source.type && !currentTech.canPlaySource(source, this.options_[this.techName_.toLowerCase()])) {
         // create a source list with the current source and send through
         // the tech loop to check for a compatible technology
         this.sourceList_([source]);
@@ -2845,7 +2881,7 @@ Player.prototype.options_ = {
     'textTrackSettings'
   ],
 
-  language: document.getElementsByTagName('html')[0].getAttribute('lang') || navigator.languages && navigator.languages[0] || navigator.userLanguage || navigator.language || 'en',
+  language: navigator.languages && navigator.languages[0] || navigator.userLanguage || navigator.language || 'en',
 
   // locales and their language translations
   languages: {},
@@ -2855,11 +2891,25 @@ Player.prototype.options_ = {
 };
 
 /**
+ * Fired when the user agent begins looking for media data
+ *
+ * @event loadstart
+ */
+Player.prototype.handleTechLoadStart_;
+
+/**
  * Fired when the player has initial duration and dimension information
  *
  * @event loadedmetadata
  */
 Player.prototype.handleLoadedMetaData_;
+
+/**
+ * Fired when the player receives text data
+ *
+ * @event textdata
+ */
+Player.prototype.handleTextData_;
 
 /**
  * Fired when the player has downloaded data at the current playback position
