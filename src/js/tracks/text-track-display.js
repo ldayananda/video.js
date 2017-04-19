@@ -113,10 +113,24 @@ class TextTrackDisplay extends Component {
       const trackList = this.player_.textTracks();
       let firstDesc;
       let firstCaptions;
+      let preferredDesc;
+      let preferredCaptions;
 
       if (trackList) {
         for (let i = 0; i < trackList.length; i++) {
           const track = trackList[i];
+
+          // If we find a track matching the preferred language
+          // there is no need to find the first default track
+          if (player.cache_.selectedLanguage &&
+            player.cache_.selectedLanguage === track.language) {
+            if (track.kind === 'descriptions' && !preferredDesc) {
+              preferredDesc = track;
+            } else if (track.kind in modes && !preferredCaptions) {
+              preferredCaptions = track;
+            }
+            break;
+          }
 
           if (track.default) {
             if (track.kind === 'descriptions' && !firstDesc) {
@@ -127,11 +141,15 @@ class TextTrackDisplay extends Component {
           }
         }
 
-        // We want to show the first default track but captions and subtitles
-        // take precedence over descriptions.
-        // So, display the first default captions or subtitles track
-        // and otherwise the first default descriptions track.
-        if (firstCaptions) {
+        // The preferred tracks take precedence over the first default track,
+        // captions and subtitles take precedence over descriptions.
+        // So, display the preferred track before the first default track
+        // and the subtitles or captions track before the descriptions track
+        if (preferredCaptions) {
+          preferredCaptions.mode = 'showing';
+        } else if (preferredDesc) {
+          preferredDesc.mode = 'showing';
+        } else if (firstCaptions) {
           firstCaptions.mode = 'showing';
         } else if (firstDesc) {
           firstDesc.mode = 'showing';

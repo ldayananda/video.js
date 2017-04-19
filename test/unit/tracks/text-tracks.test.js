@@ -8,7 +8,6 @@ import TextTrack from '../../../src/js/tracks/text-track.js';
 import TextTrackDisplay from '../../../src/js/tracks/text-track-display.js';
 import Html5 from '../../../src/js/tech/html5.js';
 import Tech from '../../../src/js/tech/tech.js';
-import Component from '../../../src/js/component.js';
 
 import * as browser from '../../../src/js/utils/browser.js';
 import TestHelpers from '../test-helpers.js';
@@ -205,47 +204,6 @@ QUnit.test('update texttrack buttons on removetrack or addtrack', function(asser
   CaptionsButton.prototype.update = oldCaptionsUpdate;
   SubtitlesButton.prototype.update = oldSubsUpdate;
   ChaptersButton.prototype.update = oldChaptersUpdate;
-
-  player.dispose();
-});
-
-QUnit.test('if native text tracks are not supported, create a texttrackdisplay', function(assert) {
-  const oldTestVid = Html5.TEST_VID;
-  const oldIsFirefox = browser.IS_FIREFOX;
-  const oldTextTrackDisplay = Component.getComponent('TextTrackDisplay');
-  let called = false;
-  const tag = document.createElement('video');
-  const track1 = document.createElement('track');
-  const track2 = document.createElement('track');
-
-  track1.kind = 'captions';
-  track1.label = 'en';
-  track1.language = 'English';
-  track1.src = 'en.vtt';
-  tag.appendChild(track1);
-
-  track2.kind = 'captions';
-  track2.label = 'es';
-  track2.language = 'Spanish';
-  track2.src = 'es.vtt';
-  tag.appendChild(track2);
-
-  Html5.TEST_VID = {
-    textTracks: []
-  };
-
-  browser.IS_FIREFOX = true;
-  Component.registerComponent('TextTrackDisplay', function() {
-    called = true;
-  });
-
-  const player = TestHelpers.makePlayer({}, tag);
-
-  assert.ok(called, 'text track display was created');
-
-  Html5.TEST_VID = oldTestVid;
-  browser.IS_FIREFOX = oldIsFirefox;
-  Component.registerComponent('TextTrackDisplay', oldTextTrackDisplay);
 
   player.dispose();
 });
